@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Minecraft AR Vision Final</title>
+    <title>Minecraft AR (Smooth)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -14,10 +14,11 @@
         canvas {
             display: block; position: absolute; top: 0; left: 0; z-index: 1;
         }
+        
         /* 載入介面 */
         #loading-ui {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #2e1a0b; /* Dirt color */
+            background: #2e1a0b;
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
             z-index: 10; color: #fff; text-align: center;
@@ -28,21 +29,29 @@
             padding: 15px 30px; color: #fff; font-family: inherit;
             cursor: pointer; text-shadow: 2px 2px #000;
         }
-        /* 關鍵：把影片和素材圖片藏起來，不要顯示在網頁上 */
         .hidden-asset { display: none; }
+        
+        /* 左上角狀態列 */
+        #fps-meter {
+            position: absolute; top: 10px; left: 10px; z-index: 5;
+            color: #55ff55; font-size: 10px; text-shadow: 1px 1px #000;
+        }
     </style>
     <script src="https://unpkg.com/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
     <script src="https://unpkg.com/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 </head>
 <body>
 
-    <img id="img-steve" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAACOFBMVEUAAAD///8AAQD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD///+x1X/fAAAAxnRSTlMAAAAAAAAJCQsTEx0dJSUtLTMzPT1JSU1NWVldXWVlbW11dYSEhI2NlZmlpa2ttbXFxdXV5eX19fX///8A/wD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAl2Z8MQAAAAFiS0dEAIgFHUgAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAAAHdElNRQfpCxwUJDc01/xOAAAAbElEQVQ4y2NgwA04mZDCnEzY5DDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5QAA8CwA8Zq1W5UAAAAASUVORK5CYII=">
-    <img id="img-enchant" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAwBQTFRF////AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA////g3Y9zwAAABl0Uk5TAAAAAAATEx0dJSUtLTMzPT1JSU1NXV1lZb2933sAAAABYktHRACIBR1IAAAACXBIWXMAABJ0AAASdAHeZh94AAAAB3RJTUUH6QscFCo50/JqYQAAAGxJREFUOMtjYMACmBmRwMyITOAywISuFqQWhwm7HJA6mLDLAamDCbscwIcJu9yAcgM2OQxgwi4HoA4m7HJAAiYwYZcDUgcTdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjEAAP7IAPG/KkQzAAAAAElFTkSuQmCC">
+    <img id="img-steve" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAACOFBMVEUAAAD///8AAQD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD///+x1X/fAAAAxnRSTlMAAAAAAAAJCQsTEx0dJSUtLTMzPT1JSU1NWVldXWVlbW11dYSEhI2NlZmlpa2ttbXFxdXV5eX19fX///8A/wD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAl2Z8MQAAAAFiS0dEAIgFHUgAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAAAHdElNRQfpCxwUJDc01/xOAAAAbElEQVQ4y2NgwA04mZDCnEzY5DDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5QAA8CwA8Zq1W5UAAAAASUVORK5CYII=">
+    <img id="img-enchant" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAwBQTFRF////AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA////g3Y9zwAAABl0Uk5TAAAAAAATEx0dJSUtLTMzPT1JSU1NXV1lZb2933sAAAABYktHRACIBR1IAAAACXBIWXMAABJ0AAASdAHeZh94AAAAB3RJTUUH6QscFCo50/JqYQAAAGxJREFUOMtjYMACmBmRwMyITOAywISuFqQWhwm7HJA6mLDLAamDCbscwIcJu9yAcgM2OQxgwi4HoA4m7HJAAiYwYZcDUgcTdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjEAAP7IAPG/KkQzAAAAAElFTkSuQmCC">
     <img id="img-crafting" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAFdQTFRFAAAA////gICA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAABFvPEeAAAAJ3RSTlMAAAAAExMdHSUlLS0zMz09SUlNTV1dZWVtbfX1////////////////38k19AAAAAWJLR0QAiAUdSAAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAAd0SU1FB+kLHBQtE9S007wAAABTSURBVDjLY2DABpgZkcDMiEzgMsCErhakFocJuxyQOpCwKwCoAwmbAgM2OQxgwi4HoA4k7HIAdSBhlwOoAwm7HEAdSNjlAOrAwq4ApA4k7HIAdSABAF3IAPF/9/Z1AAAAAElFTkSuQmCC">
     <img id="img-planks" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAFdQTFRFAAAA////gICA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAABFvPEeAAAAJ3RSTlMAAAAAExMdHSUlLS0zMz09SUlNTV1dZWVtbfX1////////////////38k19AAAAAWJLR0QAiAUdSAAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAAd0SU1FB+kLHBQuFz0s2jUAAABTSURBVDjLY2DABpgZkcDMiEzgMsCErhakFocJuxyQOpCwKwCoAwmbAgM2OQxgwi4HoA4k7HIAdSBhlwOoAwm7HEAdSNjlAOrAwq4ApA4k7HIAdSABAF3IAPF/9/Z1AAAAAElFTkSuQmCC">
+
+    <div id="fps-meter">FPS: 0</div>
+
     <div id="loading-ui">
         <h1 style="text-shadow: 4px 4px #000; line-height: 1.5;">MINECRAFT<br><span style="color:#FFFF55; font-size:0.6em;">AR Overlay</span></h1>
-        <p id="status" style="color:#aaa; font-size: 10px; margin-top:20px;">Loading Model...</p>
+        <p id="status" style="color:#aaa; font-size: 10px; margin-top:20px;">Loading Core...</p>
         <button id="start-btn" class="mc-btn" style="display:none;">Start Game</button>
     </div>
 
@@ -50,7 +59,6 @@
     <canvas id="output"></canvas>
 
 <script>
-    // === 1. 映射表 (改成對應 HTML 裡的圖片 ID) ===
     const MC_MAP = {
         'person':       { name: 'Steve',            imgId: 'img-steve',    color: '#FFD700' },
         'laptop':       { name: 'Enchanting Table', imgId: 'img-enchant',  color: '#b5651d' },
@@ -67,12 +75,17 @@
     const statusText = document.getElementById('status');
     const startBtn = document.getElementById('start-btn');
     const loadingUi = document.getElementById('loading-ui');
+    const fpsMeter = document.getElementById('fps-meter');
 
     let model = null;
+    let isRunning = false;
+    let currentPredictions = []; // 用來存「最新的」AI 結果
+    let lastFrameTime = 0;
 
-    // === 2. 初始化 AI (不需要再預載圖片了) ===
+    // === 1. 初始化 ===
     async function initAI() {
         try {
+            // 載入輕量版模型
             model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
             statusText.innerText = "Ready!";
             startBtn.style.display = 'inline-block';
@@ -82,21 +95,31 @@
         }
     }
 
-    // === 3. 啟動攝影機 ===
+    // === 2. 啟動攝影機 (限制解析度以提升效能) ===
     async function startCamera() {
         try {
+            // 強制設定 VGA 解析度 (640x480)，避免電腦跑 4K 卡死
             const stream = await navigator.mediaDevices.getUserMedia({
-                audio: false, video: { facingMode: 'environment' }
+                audio: false, 
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                }
             });
             video.srcObject = stream;
             video.onloadedmetadata = () => {
                 video.play();
                 loadingUi.style.display = 'none';
                 resizeCanvas();
-                detectFrame();
+                isRunning = true;
+                
+                // 啟動兩個獨立的迴圈
+                requestAnimationFrame(renderLoop); // 迴圈 A: 繪圖 (快)
+                predictLoop();                     // 迴圈 B: AI (慢)
             };
         } catch (e) {
-            alert("Camera Access Denied");
+            alert("Camera Error: " + e.message);
         }
     }
 
@@ -106,11 +129,20 @@
     }
     window.onresize = resizeCanvas;
 
-    // === 4. 偵測與繪圖 ===
-    async function detectFrame() {
-        // 計算畫面比例 (解決壓扁問題)
+    // === 3. 迴圈 A: 繪圖 (Render Loop) - 保持 60 FPS ===
+    function renderLoop() {
+        if (!isRunning) return;
+
+        // 計算 FPS
+        const now = performance.now();
+        const fps = Math.round(1000 / (now - lastFrameTime));
+        lastFrameTime = now;
+        if (now % 10 === 0) fpsMeter.innerText = `FPS: ${fps}`; // 偶爾更新文字
+
+        // 1. 畫視訊底圖
+        // 計算比例 (Cover 模式)
         const screenRatio = canvas.width / canvas.height;
-        const videoRatio = video.videoWidth / video.videoHeight;
+        const videoRatio = (video.videoWidth || 640) / (video.videoHeight || 480);
         let drawW, drawH, startX, startY, scale;
 
         if (screenRatio > videoRatio) {
@@ -122,12 +154,39 @@
             startX = (canvas.width - drawW) / 2; startY = 0;
             scale = canvas.height / video.videoHeight;
         }
-
+        
         ctx.drawImage(video, startX, startY, drawW, drawH);
 
-        const predictions = await model.detect(video);
+        // 2. 畫 Overlay (使用 currentPredictions，不管它是否過時)
+        drawOverlays(startX, startY, scale);
 
-        predictions.forEach(prediction => {
+        requestAnimationFrame(renderLoop);
+    }
+
+    // === 4. 迴圈 B: AI 預測 (Predict Loop) - 能跑多快跑多快，不卡畫面 ===
+    async function predictLoop() {
+        if (!isRunning) return;
+
+        // 如果影片還沒準備好，稍等一下
+        if (video.readyState < 2) {
+            setTimeout(predictLoop, 100);
+            return;
+        }
+
+        // 執行 AI (這一步很慢，會卡住這個 async function，但不會卡住 renderLoop)
+        const predictions = await model.detect(video);
+        
+        // 更新全域變數
+        currentPredictions = predictions;
+
+        // 繼續下一次預測
+        // 使用 setTimeout 讓 CPU 稍微喘口氣，不要佔滿
+        setTimeout(predictLoop, 0); 
+    }
+
+    // === 繪製邏輯分離出來 ===
+    function drawOverlays(startX, startY, scale) {
+        currentPredictions.forEach(prediction => {
             if (prediction.score > 0.5) {
                 const x = prediction.bbox[0] * scale + startX;
                 const y = prediction.bbox[1] * scale + startY;
@@ -135,7 +194,6 @@
                 const h = prediction.bbox[3] * scale;
                 const rawClass = prediction.class.toLowerCase();
                 
-                // 取得對應資料
                 let item = MC_MAP[rawClass] || { 
                     name: rawClass, imgId: 'img-planks', color: '#aaa' 
                 };
@@ -145,7 +203,7 @@
                 ctx.strokeStyle = item.color;
                 ctx.strokeRect(x, y, w, h);
 
-                // Tooltip 設定
+                // Tooltip
                 const text = item.name;
                 const iconSize = 32;
                 const padding = 8;
@@ -157,28 +215,24 @@
                 let tx = x; let ty = y - boxH - 10;
                 if (ty < 0) ty = y + 10;
 
-                // 畫底色
                 ctx.fillStyle = "rgba(16, 0, 16, 0.9)";
                 ctx.fillRect(tx, ty, boxW, boxH);
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = "#300060";
                 ctx.strokeRect(tx, ty, boxW, boxH);
 
-                // === 關鍵修改：直接從 HTML 抓圖片來畫 ===
                 const imgElement = document.getElementById(item.imgId);
                 if (imgElement) {
-                    ctx.imageSmoothingEnabled = false; // 保持像素風
+                    ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(imgElement, tx + padding, ty + padding, iconSize, iconSize);
                 }
 
-                // 畫文字
                 ctx.fillStyle = item.color;
                 if (item.name === 'Steve') ctx.fillStyle = '#FFFF55';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(text, tx + padding + iconSize + padding, ty + boxH/2);
             }
         });
-        requestAnimationFrame(detectFrame);
     }
 
     // 啟動
