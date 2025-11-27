@@ -3,79 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Minecraft AI Debug Mode</title>
-    
-    <link href="[https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap](https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap)" rel="stylesheet">
-    
-    <script src="[https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js](https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js)"></script>
-    <script src="[https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd](https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd)"></script>
+    <title>Minecraft AI Vision</title>
 
     <style>
+        /* 引入像素字體 */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
         body {
             margin: 0;
-            background-color: #1e1e1e; /* 預設背景 */
+            background-color: #1e1e1e;
             color: white;
-            font-family: 'Press Start 2P', monospace; /* Minecraft 字體 */
+            font-family: 'Press Start 2P', monospace; /* 若網路字體失敗，回退到 monospace */
             overflow: hidden;
         }
-        #console-log {
+        
+        /* 紅色錯誤條 */
+        #error-bar {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
+            top: 0; left: 0; width: 100%;
+            background: #ff5555;
+            color: #fff;
             padding: 10px;
-            background: rgba(255, 0, 0, 0.8);
-            color: white;
-            z-index: 9999;
-            display: none; /* 沒錯誤時隱藏 */
-            white-space: pre-wrap;
-            font-family: monospace;
             font-size: 12px;
+            display: none;
+            z-index: 9999;
+            text-align: center;
         }
+
         #game-container {
             position: relative;
             width: 100vw;
             height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        video {
-            display: none;
-        }
+
+        /* 隱藏 Video 原始畫面 */
+        video { display: none; }
+
+        /* Canvas 填滿螢幕 */
         canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            image-rendering: pixelated; /* 像素化關鍵 */
-        }
-        /* Loading 畫面 */
-        #loading {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 100;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            image-rendering: pixelated; /* 關鍵：像素風格 */
         }
+
+        /* 載入畫面 UI */
+        #loading-ui {
+            z-index: 100;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 40px;
+            border: 4px solid #fff;
+            box-shadow: 0 0 0 4px #000;
+        }
+        
         .mc-btn {
             margin-top: 20px;
             background: #7d7d7d;
-            border: 4px solid;
-            border-color: #fff #3b3b3b #3b3b3b #fff;
-            padding: 15px;
+            border: 4px solid #fff; /* 亮邊 */
+            border-right-color: #3b3b3b; /* 暗邊 */
+            border-bottom-color: #3b3b3b;
+            padding: 15px 30px;
             color: #fff;
             font-family: inherit;
             cursor: pointer;
-            display: none; 
+            text-shadow: 2px 2px #000;
+            display: none; /* 預設隱藏 */
+        }
+        .mc-btn:active {
+            border: 4px solid #3b3b3b;
+            border-right-color: #fff;
+            border-bottom-color: #fff;
         }
     </style>
+
+    <script src="https://unpkg.com/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+
 </head>
-<body style="background-color: #1e1e1e;"> <div id="console-log"></div>
+<body>
+
+    <div id="error-bar"></div>
 
     <div id="game-container">
-        <div id="loading">
-            <h1 style="color: #fff; text-shadow: 4px 4px #000;">MINECRAFT<br>AI SYSTEM</h1>
-            <p id="status-text" style="color: #aaa; font-size: 12px;">Initializing System...</p>
-            <button id="start-btn" class="mc-btn">ENTER WORLD</button>
+        <div id="loading-ui">
+            <h1 style="text-shadow: 4px 4px #000; margin-bottom: 10px;">MINECRAFT<br><span style="color:#FFFF55; font-size:0.5em;">AI Edition</span></h1>
+            <p id="status-text" style="color: #aaa; font-size: 10px; margin-top: 20px;">Loading Libraries...</p>
+            <button id="start-btn" class="mc-btn">Start Game</button>
         </div>
         
         <video id="webcam" playsinline muted></video>
@@ -83,15 +101,7 @@
     </div>
 
 <script>
-    // === 錯誤捕捉器 (最優先執行) ===
-    window.onerror = function(message, source, lineno, colno, error) {
-        const log = document.getElementById('console-log');
-        log.style.display = 'block';
-        log.innerHTML += `[ERROR] ${message} <br>Line: ${lineno}<br><br>`;
-        return false;
-    };
-
-    // === Minecraft 物品映射表 ===
+    // === 設定與變數 ===
     const MC_MAP = {
         'person':       { name: 'Steve',            color: '#FFD700' },
         'laptop':       { name: 'Enchanting Table', color: '#b5651d' },
@@ -102,83 +112,90 @@
         'bottle':       { name: 'Potion',           color: '#ff55ff' },
         'cup':          { name: 'Flower Pot',       color: '#cd853f' },
         'chair':        { name: 'Oak Stairs',       color: '#8b4513' },
-        'potted plant': { name: 'Sapling',          color: '#55ff55' }
+        'potted plant': { name: 'Sapling',          color: '#55ff55' },
+        'dining table': { name: 'Crafting Table',   color: '#8b4513' }
     };
 
+    const statusText = document.getElementById('status-text');
+    const startBtn = document.getElementById('start-btn');
+    const errorBar = document.getElementById('error-bar');
+    const loadingUi = document.getElementById('loading-ui');
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
-    const statusText = document.getElementById('status-text');
-    const startBtn = document.getElementById('start-btn');
-    const loadingDiv = document.getElementById('loading');
 
     let model = null;
+    let isRunning = false;
 
-    // 1. 初始化
-    async function init() {
-        try {
-            statusText.innerText = "Loading AI Model...";
-            
-            // 確保 tf 載入
-            if (typeof cocoSsd === 'undefined') {
-                throw new Error("CocoSSD SDK not loaded. Check Internet.");
-            }
+    // === 核心功能 ===
 
-            model = await cocoSsd.load();
-            statusText.innerText = "Resource Pack Loaded.";
-            statusText.style.color = "#55ff55";
-            startBtn.style.display = 'inline-block';
-            
-            startBtn.addEventListener('click', startCamera);
-        } catch (e) {
-            console.error(e);
-            document.getElementById('console-log').style.display = 'block';
-            document.getElementById('console-log').innerHTML += `Init Error: ${e.message}`;
-        }
-    }
-
-    // 2. 啟動相機
-    async function startCamera() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert("Browser does not support Camera API");
+    // 1. 檢查並初始化
+    window.onload = async function() {
+        // 檢查 Library 是否載入成功
+        if (typeof tf === 'undefined' || typeof cocoSsd === 'undefined') {
+            showError("Library Load Failed. Please refresh or check connection.");
             return;
         }
 
         try {
-            // 嘗試取得相機
+            statusText.innerText = "Downloading Model...";
+            // 載入模型 (使用 lite_mobilenet_v2 提升速度)
+            model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            
+            statusText.innerText = "Ready!";
+            statusText.style.color = "#55ff55";
+            startBtn.style.display = 'inline-block';
+            
+            startBtn.onclick = startCamera;
+        } catch (e) {
+            showError("Model Init Failed: " + e.message);
+        }
+    };
+
+    // 2. 啟動相機
+    async function startCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showError("Camera API not supported.");
+            return;
+        }
+
+        try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
                 video: { facingMode: 'environment' }
             });
-            
             video.srcObject = stream;
             
             video.onloadedmetadata = () => {
                 video.play();
-                loadingDiv.style.display = 'none'; // 隱藏 Loading
+                loadingUi.style.display = 'none'; // 隱藏選單
                 resizeCanvas();
-                requestAnimationFrame(detectFrame);
+                isRunning = true;
+                detectFrame(); // 開始迴圈
             };
         } catch (e) {
-            alert("Camera Access Denied: " + e.message);
+            showError("Camera Access Denied: " + e.message);
         }
     }
 
+    // 3. 調整畫布大小
     function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
     }
-    
-    window.addEventListener('resize', resizeCanvas);
+    window.onresize = resizeCanvas;
 
-    // 3. 繪圖與辨識
+    // 4. AI 偵測迴圈
     async function detectFrame() {
-        // 畫出影像
+        if (!isRunning) return;
+
+        // 畫出視訊底圖
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // AI 預測
+
+        // 預測
         const predictions = await model.detect(video);
 
+        // 繪製結果
         predictions.forEach(prediction => {
             if (prediction.score > 0.5) {
                 drawMcBox(prediction);
@@ -188,54 +205,66 @@
         requestAnimationFrame(detectFrame);
     }
 
-    // 繪製 Minecraft 風格框
+    // 5. 繪製 Minecraft 風格框
     function drawMcBox(prediction) {
-        const x = prediction.bbox[0];
-        const y = prediction.bbox[1];
-        const w = prediction.bbox[2];
-        const h = prediction.bbox[3];
+        const [x, y, w, h] = prediction.bbox;
         const rawClass = prediction.class.toLowerCase();
 
-        // 簡單座標映射 (假設全螢幕填滿，可能略有變形但最穩定)
+        // 座標轉換 (Video -> Canvas)
+        // 這裡做簡化全螢幕拉伸，確保對齊
         const scaleX = canvas.width / video.videoWidth;
         const scaleY = canvas.height / video.videoHeight;
-        
+
         const sx = x * scaleX;
         const sy = y * scaleY;
         const sw = w * scaleX;
         const sh = h * scaleY;
 
+        // 取得對應資料
         let item = MC_MAP[rawClass] || { 
             name: rawClass.charAt(0).toUpperCase() + rawClass.slice(1), 
             color: '#aaaaaa' 
         };
 
-        // 粗框
+        // --- 繪圖開始 ---
+        
+        // 粗框線 (陰影)
         ctx.lineWidth = 4;
         ctx.strokeStyle = 'rgba(0,0,0,0.5)';
         ctx.strokeRect(sx + 4, sy + 4, sw, sh);
+
+        // 粗框線 (主色)
         ctx.strokeStyle = item.color;
         ctx.strokeRect(sx, sy, sw, sh);
 
         // Tooltip 背景
         const text = item.name;
         ctx.font = '16px "Press Start 2P", monospace';
-        const textW = ctx.measureText(text).width;
+        const textWidth = ctx.measureText(text).width;
         
-        ctx.fillStyle = '#100010';
-        ctx.fillRect(sx, sy - 30, textW + 20, 30);
-        ctx.strokeStyle = '#2a002a';
+        // 畫在框框上方，若超出畫面則畫在下方
+        let labelY = sy - 35;
+        if (labelY < 0) labelY = sy + 10;
+
+        ctx.fillStyle = '#100010'; // 深紫黑
+        ctx.fillRect(sx, labelY, textWidth + 20, 30);
+        
+        ctx.strokeStyle = '#2a002a'; // 紫色邊框
         ctx.lineWidth = 2;
-        ctx.strokeRect(sx, sy - 30, textW + 20, 30);
+        ctx.strokeRect(sx, labelY, textWidth + 20, 30);
 
         // 文字
         ctx.fillStyle = item.color;
-        if(item.name === 'Steve') ctx.fillStyle = '#ffff55';
-        ctx.fillText(text, sx + 10, sy - 8);
+        if (item.name === 'Steve') ctx.fillStyle = '#FFFF55'; // Player
+        
+        ctx.fillText(text, sx + 10, labelY + 22);
     }
 
-    // 開始程式
-    init();
+    function showError(msg) {
+        console.error(msg);
+        errorBar.innerText = msg;
+        errorBar.style.display = 'block';
+    }
 
 </script>
 </body>
