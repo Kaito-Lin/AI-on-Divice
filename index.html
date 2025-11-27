@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft AR (Safe Mode)</title>
+    <title>Minecraft AR (Stable)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -13,21 +13,17 @@
             color: white;
         }
         
-        /* 除錯日誌區 (紅色框) */
         #debug-console {
-            position: absolute; top: 0; left: 0; width: 300px; height: 100vh;
-            background: rgba(0, 0, 0, 0.8); border-right: 2px solid #f55;
+            position: absolute; top: 0; left: 0; width: 300px; height: 200px;
+            background: rgba(0, 0, 0, 0.5); 
             padding: 10px; font-size: 10px; z-index: 999;
             overflow-y: auto; pointer-events: none;
             white-space: pre-wrap; font-family: monospace;
+            color: #fff; text-shadow: 1px 1px #000;
         }
 
-        /* 畫布 */
-        canvas {
-            display: block; position: absolute; top: 0; left: 0; z-index: 1;
-        }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
         
-        /* 控制面板 */
         #control-panel {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             z-index: 100; text-align: center; width: 100%;
@@ -38,17 +34,11 @@
             border-bottom-color: #3b3b3b; border-right-color: #3b3b3b;
             padding: 15px 20px; color: #fff; font-family: inherit;
             cursor: pointer; text-shadow: 2px 2px #000; margin: 5px;
-            font-size: 12px;
         }
         .mc-btn:active { border: 4px solid #3b3b3b; border-bottom-color: #fff; border-right-color: #fff; }
         .mc-btn:disabled { background: #555; color: #888; border-color: #555; cursor: not-allowed; }
 
         .hidden-asset { display: none; }
-        
-        #fps-meter {
-            position: absolute; top: 10px; right: 10px; z-index: 50;
-            color: #55ff55; font-size: 14px; text-shadow: 2px 2px #000; background: rgba(0,0,0,0.5); padding: 5px;
-        }
     </style>
     
     <script src="https://unpkg.com/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
@@ -56,13 +46,11 @@
 </head>
 <body>
 
-    <div id="debug-console">=== SYSTEM LOG ===<br></div>
-    <div id="fps-meter">FPS: 0</div>
+    <div id="debug-console">=== SYSTEM READY ===<br></div>
 
-    <img id="img-steve" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAACOFBMVEUAAAD///8AAQD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD///+x1X/fAAAAxnRSTlMAAAAAAAAJCQsTEx0dJSUtLTMzPT1JSU1NWVldXWVlbW11dYSEhI2NlZmlpa2ttbXFxdXV5eX19fX///8A/wD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAl2Z8MQAAAAFiS0dEAIgFHUgAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAAAHdElNRQfpCxwUJDc01/xOAAAAbElEQVQ4y2NgwA04mZDCnEzY5DDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5QAA8CwA8Zq1W5UAAAAASUVORK5CYII=">
-    <img id="img-enchant" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAwBQTFRF////AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA////g3Y9zwAAABl0Uk5TAAAAAAATEx0dJSUtLTMzPT1JSU1NXV1lZb2933sAAAABYktHRACIBR1IAAAACXBIWXMAABJ0AAASdAHeZh94AAAAB3RJTUUH6QscFCo50/JqYQAAAGxJREFUOMtjYMACmBmRwMyITOAywISuFqQWhwm7HJA6mLDLAamDCbscwIcJu9yAcgM2OQxgwi4HoA4m7HJAAiYwYZcDUgcTdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjEAAP7IAPG/KkQzAAAAAElFTkSuQmCC">
+    <img id="img-steve" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAAFJJREFUWAntlkEOACAIA73/j2bDxSTQAl32MCY8tqxuc639k521P4ssA8yO2AHGIdgBxiHYAcYh2AHGIdgBxiHYAcYh2AHGIdgBxiHYAS7B9tkfF150r83b72ozAAAAAElFTkSuQmCC">
     <img id="img-crafting" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAFdQTFRFAAAA////gICA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAABFvPEeAAAAJ3RSTlMAAAAAExMdHSUlLS0zMz09SUlNTV1dZWVtbfX1////////////////38k19AAAAAWJLR0QAiAUdSAAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAAd0SU1FB+kLHBQtE9S007wAAABTSURBVDjLY2DABpgZkcDMiEzgMsCErhakFocJuxyQOpCwKwCoAwmbAgM2OQxgwi4HoA4k7HIAdSBhlwOoAwm7HEAdSNjlAOrAwq4ApA4k7HIAdSABAF3IAPF/9/Z1AAAAAElFTkSuQmCC">
-    <img id="img-planks" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAFdQTFRFAAAA////gICA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAABFvPEeAAAAJ3RSTlMAAAAAExMdHSUlLS0zMz09SUlNTV1dZWVtbfX1////////////////38k19AAAAAWJLR0QAiAUdSAAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAAd0SU1FB+kLHBQuFz0s2jUAAABTSURBVDjLY2DABpgZkcDMiEzgMsCErhakFocJuxyQOpCwKwCoAwmbAgM2OQxgwi4HoA4k7HIAdSBhlwOoAwm7HEAdSNjlAOrAwq4ApA4k7HIAdSABAF3IAPF/9/Z1AAAAAElFTkSuQmCC">
+    <img id="img-planks" class="hidden-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAFdQTFRFAAAA////gICA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAABFvPEeAAAAJ3RSTlMAAAAAExMdHSUlLS0zMz09SUlNTV1dZWVtbfX1////////////////38k19AAAAAWJLR0QAiAUdSAAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAAd0SU1FB+kLHBQtE9S007wAAABTSURBVDjLY2DABpgZkcDMiEzgMsCErhakFocJuxyQOpCwKwCoAwmbAgM2OQxgwi4HoA4k7HIAdSBhlwOoAwm7HEAdSNjlAOrAwq4ApA4k7HIAdSABAF3IAPF/9/Z1AAAAAElFTkSuQmCC">
 
     <div id="control-panel">
         <button id="btn-camera" class="mc-btn">1. Start Camera</button>
@@ -74,200 +62,170 @@
     <canvas id="output"></canvas>
 
 <script>
-    // === 日誌功能 ===
     const debugConsole = document.getElementById('debug-console');
     function log(msg) {
-        const time = new Date().toLocaleTimeString();
-        debugConsole.innerHTML += `[${time}] ${msg}<br>`;
+        debugConsole.innerHTML += `> ${msg}<br>`;
         debugConsole.scrollTop = debugConsole.scrollHeight;
-        console.log(msg);
     }
     
-    // 捕捉全域錯誤
     window.onerror = function(msg, url, line) {
-        log(`CRASH: ${msg} (Line ${line})`);
+        log(`ERR: ${msg}`);
     };
 
-    // === 變數 ===
     const video = document.getElementById('video-source');
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
-    const fpsMeter = document.getElementById('fps-meter');
     const btnCamera = document.getElementById('btn-camera');
     const btnLoad = document.getElementById('btn-load');
     const btnStartAI = document.getElementById('btn-start-ai');
 
     const MC_MAP = {
         'person':       { name: 'Steve',            imgId: 'img-steve',    color: '#FFD700' },
-        'laptop':       { name: 'Enchanting Table', imgId: 'img-enchant',  color: '#b5651d' },
-        'tv':           { name: 'Enchanting Table', imgId: 'img-enchant',  color: '#2a002a' },
-        'keyboard':     { name: 'Pressure Plate',   imgId: 'img-planks',   color: '#aaaaaa' },
-        'cell phone':   { name: 'Map',              imgId: 'img-crafting', color: '#ffffff' },
+        'laptop':       { name: 'Enchanting Table', imgId: 'img-crafting', color: '#b5651d' },
+        'tv':           { name: 'Obsidian',         imgId: 'img-crafting', color: '#2a002a' },
+        'cell phone':   { name: 'Map',              imgId: 'img-planks',   color: '#ffffff' },
         'dining table': { name: 'Crafting Table',   imgId: 'img-crafting', color: '#8b4513' },
     };
 
     let model = null;
     let isCameraRunning = false;
     let isAiRunning = false;
-    let lastFrameTime = 0;
     let currentPredictions = [];
 
-    // === 步驟 1: 啟動攝影機 ===
+    // 1. Camera
     btnCamera.onclick = async () => {
-        log("Trying to start camera...");
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: false, 
                 video: { width: 640, height: 480, facingMode: 'environment' }
             });
             video.srcObject = stream;
-            
-            // 重要：等待影片真正開始播放
             video.onloadedmetadata = () => {
-                video.play().then(() => {
-                    log("Camera playing! Resolution: " + video.videoWidth + "x" + video.videoHeight);
-                    isCameraRunning = true;
-                    resizeCanvas();
-                    requestAnimationFrame(renderLoop); // 開始繪圖
-                    btnCamera.disabled = true;
-                    btnLoad.disabled = false;
-                    btnLoad.style.borderColor = '#55ff55';
-                }).catch(e => log("Play failed: " + e));
+                video.play();
+                isCameraRunning = true;
+                resizeCanvas();
+                requestAnimationFrame(renderLoop);
+                btnCamera.disabled = true;
+                btnLoad.disabled = false;
+                log("Camera Started.");
             };
-        } catch (e) {
-            log("Camera Error: " + e.name + " - " + e.message);
-        }
+        } catch (e) { log("Cam Fail: " + e.message); }
     };
 
-    // === 步驟 2: 載入 AI ===
+    // 2. Load AI
     btnLoad.onclick = async () => {
-        log("Loading Model... (This may freeze UI for a sec)");
         btnLoad.innerText = "Loading...";
         try {
-            // 強制設定 backend，避免 WebGL 崩潰 (如果需要可改 'cpu' 但很慢)
-            // await tf.setBackend('cpu'); // 如果還是當機，請解開這行註解
-            
             model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-            log("Model Loaded Successfully!");
+            log("Model Loaded.");
             btnLoad.disabled = true;
             btnStartAI.disabled = false;
-            btnStartAI.style.borderColor = '#55ff55';
-        } catch (e) {
-            log("Model Load Failed: " + e.message);
-        }
+        } catch (e) { log("Model Fail: " + e.message); }
     };
 
-    // === 步驟 3: 啟動 AI 偵測 ===
+    // 3. Start Detect
     btnStartAI.onclick = () => {
         if (!model) return;
-        log("Starting AI Loop...");
         isAiRunning = true;
-        predictLoop(); // 開始 AI 迴圈
+        predictLoop();
         btnStartAI.disabled = true;
         btnStartAI.innerText = "Scanning...";
+        log("Scanning...");
     };
 
-    // === 繪圖迴圈 (Render Loop) ===
     function renderLoop() {
         if (!isCameraRunning) return;
-
-        // FPS 計算
-        const now = performance.now();
-        const fps = Math.round(1000 / (now - lastFrameTime));
-        lastFrameTime = now;
-        if (now % 20 === 0) fpsMeter.innerText = `FPS: ${fps}`;
-
-        // 畫圖
-        const screenRatio = canvas.width / canvas.height;
-        const videoRatio = (video.videoWidth || 640) / (video.videoHeight || 480);
-        let drawW, drawH, startX, startY, scale;
-
-        if (screenRatio > videoRatio) {
-            drawW = canvas.width; drawH = canvas.width / videoRatio;
-            startX = 0; startY = (canvas.height - drawH) / 2;
-            scale = canvas.width / video.videoWidth;
-        } else {
-            drawW = canvas.height * videoRatio; drawH = canvas.height;
-            startX = (canvas.width - drawW) / 2; startY = 0;
-            scale = canvas.height / video.videoHeight;
-        }
-
-        ctx.drawImage(video, startX, startY, drawW, drawH);
         
-        // 只有當有預測結果時才畫框
-        drawOverlays(startX, startY, scale);
+        // 簡單的全螢幕填滿邏輯
+        const scale = Math.max(canvas.width / 640, canvas.height / 480);
+        const w = 640 * scale;
+        const h = 480 * scale;
+        const x = (canvas.width - w) / 2;
+        const y = (canvas.height - h) / 2;
+
+        ctx.drawImage(video, x, y, w, h);
+        
+        // 只有不為空時才繪製
+        if (currentPredictions.length > 0) {
+            drawOverlays(x, y, scale);
+        }
 
         requestAnimationFrame(renderLoop);
     }
 
-    // === AI 迴圈 (獨立) ===
     async function predictLoop() {
         if (!isAiRunning) return;
-
         try {
-            const startT = performance.now();
-            const predictions = await model.detect(video);
-            const endT = performance.now();
-            
-            // 記錄 AI 推論時間 (如果 > 100ms 代表很慢)
-            // log(`Inference: ${Math.round(endT - startT)}ms`); 
-            
-            currentPredictions = predictions;
+            // 只在視訊準備好時偵測
+            if (video.readyState === 4) {
+                currentPredictions = await model.detect(video);
+            }
         } catch (e) {
-            log("Prediction Error: " + e.message);
-            isAiRunning = false; // 停止以免無限報錯
+            // log("Predict Skip"); // 忽略單次錯誤
         }
-
-        // 讓 CPU 休息一下再跑下一次 (避免卡死)
-        setTimeout(predictLoop, 50); 
+        setTimeout(predictLoop, 50);
     }
 
     function drawOverlays(startX, startY, scale) {
-        if(!currentPredictions.length) return;
-
         currentPredictions.forEach(prediction => {
             if (prediction.score > 0.5) {
-                const x = prediction.bbox[0] * scale + startX;
-                const y = prediction.bbox[1] * scale + startY;
-                const w = prediction.bbox[2] * scale;
-                const h = prediction.bbox[3] * scale;
+                const boxX = prediction.bbox[0] * scale + startX;
+                const boxY = prediction.bbox[1] * scale + startY;
+                const boxW = prediction.bbox[2] * scale;
+                const boxH = prediction.bbox[3] * scale;
                 const rawClass = prediction.class.toLowerCase();
                 
                 let item = MC_MAP[rawClass] || { name: rawClass, imgId: 'img-planks', color: '#aaa' };
 
-                // 畫框
-                ctx.lineWidth = 4; ctx.strokeStyle = item.color; ctx.strokeRect(x, y, w, h);
+                // Draw Box
+                ctx.lineWidth = 4; ctx.strokeStyle = item.color; ctx.strokeRect(boxX, boxY, boxW, boxH);
 
-                // Tooltip
+                // Draw Tooltip
                 const text = item.name; const iconSize = 32; const padding = 8;
                 ctx.font = `16px "Press Start 2P", monospace`;
                 const textW = ctx.measureText(text).width;
-                const boxW = iconSize + textW + padding * 3; const boxH = iconSize + padding * 2;
+                const tooltipW = iconSize + textW + padding * 3;
                 
-                let tx = x; let ty = y - boxH - 10;
-                if (ty < 0) ty = y + 10;
+                let tx = boxX; let ty = boxY - 50;
+                if (ty < 0) ty = boxY + 10;
 
-                ctx.fillStyle = "rgba(16, 0, 16, 0.9)"; ctx.fillRect(tx, ty, boxW, boxH);
-                ctx.lineWidth = 2; ctx.strokeStyle = "#300060"; ctx.strokeRect(tx, ty, boxW, boxH);
+                ctx.fillStyle = "rgba(16, 0, 16, 0.9)"; 
+                ctx.fillRect(tx, ty, tooltipW, 40);
+                ctx.strokeStyle = "#300060"; ctx.lineWidth = 2;
+                ctx.strokeRect(tx, ty, tooltipW, 40);
 
+                // === 關鍵修正：防崩潰繪圖 (Safe Draw) ===
                 const imgElement = document.getElementById(item.imgId);
-                if (imgElement) ctx.drawImage(imgElement, tx + padding, ty + padding, iconSize, iconSize);
+                
+                // 檢查圖片是否載入成功 (complete 且 naturalWidth > 0)
+                if (imgElement && imgElement.complete && imgElement.naturalWidth !== 0) {
+                    try {
+                        // 嘗試畫圖
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(imgElement, tx + padding, ty + 4, iconSize, iconSize);
+                    } catch (err) {
+                        // 如果畫圖失敗，靜默處理，改畫色塊
+                        ctx.fillStyle = item.color;
+                        ctx.fillRect(tx + padding, ty + 4, iconSize, iconSize);
+                    }
+                } else {
+                    // 如果圖片壞了，畫色塊代替
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(tx + padding, ty + 4, iconSize, iconSize);
+                }
 
                 ctx.fillStyle = item.color;
                 if (item.name === 'Steve') ctx.fillStyle = '#FFFF55';
-                ctx.fillText(text, tx + padding + iconSize + padding, ty + 22);
+                ctx.fillText(text, tx + padding + iconSize + padding, ty + 28);
             }
         });
     }
-    
-    // 視窗調整
+
     function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
     }
     window.onresize = resizeCanvas;
-    resizeCanvas();
-    log("System Ready. Please click buttons in order.");
 
 </script>
 </body>
