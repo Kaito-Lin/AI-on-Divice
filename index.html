@@ -2,287 +2,280 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>On-Device AI 物件辨識</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft AI Vision Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
     <style>
+        :root {
+            --mc-bg: #1e1e1e;
+            --mc-btn: #7d7d7d;
+            --mc-btn-shadow: #3b3b3b;
+            --mc-text: #ffffff;
+            --mc-green: #55ff55;
+            --mc-gold: #ffaa00;
+        }
+
         body {
             margin: 0;
-            padding: 0;
-            background-color: #000;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden; /* 防止捲動 */
+            background-color: #111;
+            font-family: 'Press Start 2P', cursive;
+            color: var(--mc-text);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
+            overflow: hidden;
         }
 
-        /* 視訊與畫布的容器 */
-        #cam-container {
+        /* Minecraft UI Container */
+        #game-container {
             position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: #111;
+            border: 4px solid #555;
+            box-shadow: 0 0 0 4px #222;
+            width: 640px;
+            height: 480px;
+            background: #000;
+            max-width: 95vw;
         }
 
-        /* 影像與 Canvas 重疊 */
-        video, canvas {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* 讓畫面填滿手機螢幕 */
-        }
-
-        /* 介面覆蓋層 (UI Overlay) */
-        #ui-layer {
+        /* 隱藏原始 Video，只顯示 Canvas */
+        video {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            object-fit: fill;
+            visibility: hidden; 
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated; /* 關鍵：讓繪圖保持像素風 */
+        }
+
+        /* Loading Screen UI */
+        #loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             z-index: 10;
-            pointer-events: none; /* 讓點擊穿透到下方 */
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            box-sizing: border-box;
         }
 
-        /* 狀態列 */
-        .status-bar {
-            background: rgba(0, 0, 0, 0.6);
-            color: #00ffcc;
-            padding: 10px 15px;
-            border-radius: 20px;
-            font-size: 14px;
-            backdrop-filter: blur(5px);
-            align-self: flex-start;
-            pointer-events: auto;
-        }
-
-        /* 啟動按鈕 / 載入畫面 */
-        #start-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 20;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            color: white;
-        }
-
-        button {
-            background: #007aff;
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 18px;
-            border-radius: 30px;
-            cursor: pointer;
-            margin-top: 20px;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,122,255,0.4);
-            transition: transform 0.2s;
-        }
-
-        button:active {
-            transform: scale(0.95);
-        }
-
-        button:disabled {
-            background: #555;
-            color: #888;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #00ffcc;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+        .mc-title {
+            font-size: 24px;
+            color: var(--mc-text);
+            text-shadow: 2px 2px #000;
             margin-bottom: 20px;
-            display: none; /* 預設隱藏 */
+            text-align: center;
+            line-height: 1.5;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .mc-button {
+            background-color: var(--mc-btn);
+            border: 2px solid #fff;
+            border-right-color: var(--mc-btn-shadow);
+            border-bottom-color: var(--mc-btn-shadow);
+            color: #fff;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', cursive;
+            cursor: pointer;
+            text-shadow: 1px 1px #000;
+        }
+        
+        .mc-button:active {
+            border: 2px solid var(--mc-btn-shadow);
+            border-right-color: #fff;
+            border-bottom-color: #fff;
         }
 
-        /* 偵測框樣式設定 (由 JS 動態繪製，此處為文字樣式) */
-        .prediction-text {
-            font-weight: bold;
-            text-transform: uppercase;
+        /* Debug Stats */
+        #fps-counter {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: var(--mc-gold);
+            font-size: 10px;
+            text-shadow: 1px 1px #000;
+            z-index: 5;
         }
     </style>
 </head>
 <body>
 
-    <div id="cam-container">
-        <video id="video" playsinline muted autoplay></video>
-        <canvas id="canvas"></canvas>
+    <div id="game-container">
+        <div id="fps-counter">FPS: 0</div>
+        
+        <div id="loading-screen">
+            <div class="mc-title">Building Terrain...<br><span style="font-size:12px; color:#aaa;">(Loading AI Model)</span></div>
+            <button id="start-btn" class="mc-button" style="display:none;">Start Game</button>
+        </div>
+
+        <video id="webcam" playsinline autoplay muted></video>
+        <canvas id="output"></canvas>
     </div>
 
-    <div id="ui-layer">
-        <div class="status-bar" id="status">等待啟動...</div>
-    </div>
+<script>
+    /**
+     * Minecraft 物品映射表
+     * 鍵值為 COCO-SSD 模型辨識出的 class 名稱
+     */
+    const MINECRAFT_MAP = {
+        'person': { name: 'Player Head', color: '#FFD700' },     // 金色
+        'tv': { name: 'Enchanting Table', color: '#b5651d' },    // 電腦螢幕 -> 附魔台
+        'laptop': { name: 'Enchanting Table', color: '#b5651d' },
+        'chair': { name: 'Oak Stairs', color: '#8B4513' },       // 木色
+        'dining table': { name: 'Crafting Table', color: '#A0522D' },
+        'keyboard': { name: 'Stone Button', color: '#777' },
+        'mouse': { name: 'Lever', color: '#777' },
+        'cell phone': { name: 'Map', color: '#fff' }
+    };
 
-    <div id="start-screen">
-        <div class="loader" id="loader"></div>
-        <h2 id="loading-text">準備載入 AI 模型</h2>
-        <p style="font-size: 0.9em; color: #aaa; margin: 0 20px;">
-            請允許相機權限。<br>模型載入後可離線使用。
-        </p>
-        <button id="btn-start">開始辨識</button>
-    </div>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('output');
+    const ctx = canvas.getContext('2d');
+    const loadingScreen = document.getElementById('loading-screen');
+    const startBtn = document.getElementById('start-btn');
+    const titleText = document.querySelector('.mc-title');
+    const fpsText = document.getElementById('fps-counter');
 
-    <script>
-        // DOM 元素
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const btnStart = document.getElementById('btn-start');
-        const statusText = document.getElementById('status');
-        const startScreen = document.getElementById('start-screen');
-        const loader = document.getElementById('loader');
-        const loadingText = document.getElementById('loading-text');
+    let model = null;
+    let isDetecting = false;
+    let lastTime = 0;
 
-        let model = undefined;
-        let isDetecting = false;
-
-        // 1. 初始化：綁定按鈕事件
-        btnStart.addEventListener('click', async () => {
-            btnStart.style.display = 'none'; // 隱藏按鈕
-            loader.style.display = 'block';  // 顯示讀取圈圈
-            loadingText.innerText = "正在載入 AI 模型 (約 2-5 MB)...";
-            
-            try {
-                await initAI();
-            } catch (error) {
-                console.error(error);
-                loadingText.innerText = "錯誤: " + error.message;
-                loader.style.display = 'none';
-                btnStart.style.display = 'inline-block';
-                btnStart.innerText = "重試";
-            }
-        });
-
-        // 2. 核心初始化函式
-        async function initAI() {
-            // A. 載入 COCO-SSD 模型
-            // 此模型會自動下載並存入瀏覽器快取
+    // 1. 初始化模型
+    async function init() {
+        try {
+            // 載入 COCO-SSD 模型 (MobileNet V2 後端)
             model = await cocoSsd.load();
-            loadingText.innerText = "模型載入完成，正在啟動相機...";
-
-            // B. 啟動相機
-            await setupCamera();
+            titleText.innerHTML = "World Loaded!";
+            startBtn.style.display = 'block';
             
-            // C. 調整 Canvas 尺寸並開始偵測
-            startScreen.style.display = 'none'; // 隱藏啟動畫面
-            statusText.innerText = "AI 運作中 - On Device";
-            
-            resizeCanvas();
-            predictLoop();
+            startBtn.addEventListener('click', () => {
+                loadingScreen.style.display = 'none';
+                startCamera();
+            });
 
-            // 監聽視窗大小改變 (旋轉手機時)
-            window.addEventListener('resize', resizeCanvas);
+        } catch (error) {
+            console.error(error);
+            titleText.innerHTML = "Connection Lost!<br><span style='font-size:10px'>Check Internet for 1st load</span>";
         }
+    }
 
-        // 3. 設定相機
-        async function setupCamera() {
-            const constraints = {
+    // 2. 啟動攝影機
+    async function startCamera() {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const stream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
                 video: {
                     facingMode: 'environment', // 優先使用後鏡頭
-                    // 為了效能，不要設定太高的解析度，640x480 對手機辨識來說足夠
-                    width: { ideal: 640 }, 
-                    height: { ideal: 480 }
+                    width: 640,
+                    height: 480
                 }
-            };
-
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            });
             video.srcObject = stream;
-
-            return new Promise((resolve) => {
-                video.onloadedmetadata = () => {
-                    resolve(video);
-                };
-            });
-        }
-
-        // 4. 調整 Canvas 尺寸以匹配 Video 顯示大小
-        function resizeCanvas() {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
             
-            // 因為 CSS 用 object-fit: cover 強制填滿，
-            // 這裡我們讓 Canvas 的解析度跟隨影片原始解析度，
-            // CSS 會負責把 Canvas 拉伸到跟 Video 一樣大。
+            // 等待影片 metadata 載入完畢後設定 canvas 尺寸
+            video.onloadedmetadata = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                isDetecting = true;
+                detectFrame();
+            };
         }
+    }
 
-        // 5. 預測循環 (Loop)
-        async function predictLoop() {
-            if (!model) return;
+    // 3. 繪製 Minecraft 風格邊框
+    function drawMinecraftBox(x, y, w, h, label, color) {
+        // 粗邊框
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#000'; // 黑色陰影邊框
+        ctx.strokeRect(x, y, w, h);
+        
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = color; // 物品代表色
+        ctx.strokeRect(x, y, w, h);
 
-            // 進行預測
-            // detect 參數：影像來源, maxNumBoxes, minScore
-            const predictions = await model.detect(video, 20, 0.5);
+        // 標籤背景 (Tooltip 風格)
+        const text = label;
+        const fontSize = 12;
+        ctx.font = `${fontSize}px "Press Start 2P"`;
+        const textWidth = ctx.measureText(text).width;
+        const padding = 6;
+        
+        // 標籤背景框 (半透明黑)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x, y - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
+        
+        // 標籤邊框
+        ctx.strokeStyle = '#555'; // 石頭色邊框
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
 
-            // 繪製結果
-            drawPredictions(predictions);
+        // 文字
+        ctx.fillStyle = '#fff';
+        ctx.fillText(text, x + padding, y - padding);
+    }
 
-            // 使用 requestAnimationFrame 達到最順暢的 FPS
-            requestAnimationFrame(predictLoop);
-        }
+    // 4. 偵測迴圈
+    async function detectFrame() {
+        if (!isDetecting) return;
 
-        // 6. 繪製方框與標籤
-        function drawPredictions(predictions) {
-            // 清空畫布
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 計算 FPS
+        const now = performance.now();
+        const fps = Math.round(1000 / (now - lastTime));
+        lastTime = now;
+        fpsText.innerText = `FPS: ${fps}`;
 
-            const font = "16px sans-serif";
-            ctx.font = font;
-            ctx.textBaseline = "top";
+        // 進行推論
+        const predictions = await model.detect(video);
 
-            predictions.forEach(prediction => {
-                const [x, y, width, height] = prediction['bbox'];
-                const text = prediction['class'];
-                const score = Math.round(prediction['score'] * 100) + '%';
+        // 清除畫布並重繪影像
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                // 畫框框
-                ctx.strokeStyle = "#00FFFF";
-                ctx.lineWidth = 4;
-                ctx.strokeRect(x, y, width, height);
+        // 繪製偵測結果
+        predictions.forEach(prediction => {
+            const className = prediction.class;
+            
+            // 檢查是否在我們的 Minecraft 映射表中
+            if (MINECRAFT_MAP[className]) {
+                const mcItem = MINECRAFT_MAP[className];
+                const [x, y, width, height] = prediction.bbox;
+                
+                // 過濾信心度太低的 (可選)
+                if (prediction.score > 0.5) {
+                    drawMinecraftBox(x, y, width, height, mcItem.name, mcItem.color);
+                }
+            } else {
+                // (選用) 顯示未定義物品，或是忽略
+                // const [x, y, width, height] = prediction.bbox;
+                // drawMinecraftBox(x, y, width, height, className, '#aaa');
+            }
+        });
 
-                // 畫背景標籤 (半透明黑底)
-                const textWidth = ctx.measureText(text + " " + score).width;
-                const textHeight = 16; // 根據字體大小估算
-                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-                ctx.fillRect(x, y, textWidth + 10, textHeight + 10);
+        requestAnimationFrame(detectFrame);
+    }
 
-                // 畫文字
-                ctx.fillStyle = "#FFFFFF";
-                ctx.fillText(text + " - " + score, x + 5, y + 5);
-            });
-        }
-    </script>
+    // 啟動程式
+    init();
+
+</script>
 </body>
 </html>
