@@ -1,151 +1,26 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft AI Vision Demo</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-
-    <style>
-        :root {
-            --mc-bg: #1e1e1e;
-            --mc-btn: #7d7d7d;
-            --mc-btn-shadow: #3b3b3b;
-            --mc-text: #ffffff;
-            --mc-green: #55ff55;
-            --mc-gold: #ffaa00;
-        }
-
-        body {
-            margin: 0;
-            background-color: #111;
-            font-family: 'Press Start 2P', cursive;
-            color: var(--mc-text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Minecraft UI Container */
-        #game-container {
-            position: relative;
-            border: 4px solid #555;
-            box-shadow: 0 0 0 4px #222;
-            width: 640px;
-            height: 480px;
-            background: #000;
-            max-width: 95vw;
-        }
-
-        /* 隱藏原始 Video，只顯示 Canvas */
-        video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: fill;
-            visibility: hidden; 
-        }
-
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            image-rendering: pixelated; /* 關鍵：讓繪圖保持像素風 */
-        }
-
-        /* Loading Screen UI */
-        #loading-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-        }
-
-        .mc-title {
-            font-size: 24px;
-            color: var(--mc-text);
-            text-shadow: 2px 2px #000;
-            margin-bottom: 20px;
-            text-align: center;
-            line-height: 1.5;
-        }
-
-        .mc-button {
-            background-color: var(--mc-btn);
-            border: 2px solid #fff;
-            border-right-color: var(--mc-btn-shadow);
-            border-bottom-color: var(--mc-btn-shadow);
-            color: #fff;
-            padding: 10px 20px;
-            font-family: 'Press Start 2P', cursive;
-            cursor: pointer;
-            text-shadow: 1px 1px #000;
-        }
-        
-        .mc-button:active {
-            border: 2px solid var(--mc-btn-shadow);
-            border-right-color: #fff;
-            border-bottom-color: #fff;
-        }
-
-        /* Debug Stats */
-        #fps-counter {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: var(--mc-gold);
-            font-size: 10px;
-            text-shadow: 1px 1px #000;
-            z-index: 5;
-        }
-    </style>
-</head>
-<body>
-
-    <div id="game-container">
-        <div id="fps-counter">FPS: 0</div>
-        
-        <div id="loading-screen">
-            <div class="mc-title">Building Terrain...<br><span style="font-size:12px; color:#aaa;">(Loading AI Model)</span></div>
-            <button id="start-btn" class="mc-button" style="display:none;">Start Game</button>
-        </div>
-
-        <video id="webcam" playsinline autoplay muted></video>
-        <canvas id="output"></canvas>
-    </div>
-
 <script>
-    /**
-     * Minecraft 物品映射表
-     * 鍵值為 COCO-SSD 模型辨識出的 class 名稱
-     */
+    // === V2 設定：強化 Minecraft 風格映射 ===
+    
+    // 這裡定義 "COCO-SSD 辨識出的英文" 對應 "Minecraft 的什麼物品"
+    // 鍵值全部使用「小寫」以防萬一
     const MINECRAFT_MAP = {
-        'person': { name: 'Player Head', color: '#FFD700' },     // 金色
-        'tv': { name: 'Enchanting Table', color: '#b5651d' },    // 電腦螢幕 -> 附魔台
-        'laptop': { name: 'Enchanting Table', color: '#b5651d' },
-        'chair': { name: 'Oak Stairs', color: '#8B4513' },       // 木色
-        'dining table': { name: 'Crafting Table', color: '#A0522D' },
-        'keyboard': { name: 'Stone Button', color: '#777' },
-        'mouse': { name: 'Lever', color: '#777' },
-        'cell phone': { name: 'Map', color: '#fff' }
+        'person':       { name: 'Player Head',      color: '#FFD700' }, // 金色
+        'cup':          { name: 'Flower Pot',       color: '#cc7722' },
+        'bottle':       { name: 'Potion',           color: '#ff55ff' },
+        'chair':        { name: 'Oak Stairs',       color: '#b8860b' },
+        'couch':        { name: 'Red Wool',         color: '#ff3333' },
+        'potted plant': { name: 'Sapling',          color: '#55ff55' },
+        'tv':           { name: 'Obsidian',         color: '#330033' },
+        'laptop':       { name: 'Enchanting Table', color: '#b5651d' },
+        'mouse':        { name: 'Stone Button',     color: '#aaaaaa' },
+        'keyboard':     { name: 'Pressure Plate',   color: '#dddddd' },
+        'cell phone':   { name: 'Map',              color: '#ffffff' },
+        'dining table': { name: 'Crafting Table',   color: '#8b4513' },
+        'book':         { name: 'Enchanted Book',   color: '#a020f0' },
     };
+
+    // 預設樣式 (遇到不認識的東西時)
+    const DEFAULT_BLOCK = { name: 'Cobblestone', color: '#777777' };
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('output');
@@ -162,9 +37,11 @@
     // 1. 初始化模型
     async function init() {
         try {
-            // 載入 COCO-SSD 模型 (MobileNet V2 後端)
+            // 載入模型
             model = await cocoSsd.load();
-            titleText.innerHTML = "World Loaded!";
+            console.log("Model loaded successfully!");
+            
+            titleText.innerHTML = "Server Online!<br><span style='font-size:12px;color:#5f5;'>> Ready to join</span>";
             startBtn.style.display = 'block';
             
             startBtn.addEventListener('click', () => {
@@ -173,109 +50,140 @@
             });
 
         } catch (error) {
-            console.error(error);
-            titleText.innerHTML = "Connection Lost!<br><span style='font-size:10px'>Check Internet for 1st load</span>";
+            console.error("Model load failed:", error);
+            titleText.innerHTML = "Connection Failed!<br><span style='font-size:10px'>Check network for first load</span>";
         }
     }
 
     // 2. 啟動攝影機
     async function startCamera() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: false,
-                video: {
-                    facingMode: 'environment', // 優先使用後鏡頭
-                    width: 640,
-                    height: 480
-                }
-            });
-            video.srcObject = stream;
-            
-            // 等待影片 metadata 載入完畢後設定 canvas 尺寸
-            video.onloadedmetadata = () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                isDetecting = true;
-                detectFrame();
-            };
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: {
+                        facingMode: 'environment',
+                        width: 640,
+                        height: 480
+                    }
+                });
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    isDetecting = true;
+                    detectFrame();
+                };
+            } catch (e) {
+                alert("Camera permission denied or not found!");
+            }
         }
     }
 
-    // 3. 繪製 Minecraft 風格邊框
-    function drawMinecraftBox(x, y, w, h, label, color) {
-        // 粗邊框
+    // 3. 繪製 Minecraft 風格 UI (Tooltip 風格)
+    function drawMinecraftOverlay(x, y, w, h, text, color) {
+        // A. 繪製物體框線 (更粗的像素感)
+        ctx.lineWidth = 6; 
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; // 陰影層
+        ctx.strokeRect(x + 2, y + 2, w, h); 
+
         ctx.lineWidth = 4;
-        ctx.strokeStyle = '#000'; // 黑色陰影邊框
-        ctx.strokeRect(x, y, w, h);
-        
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = color; // 物品代表色
+        ctx.strokeStyle = color; // 物體顏色
         ctx.strokeRect(x, y, w, h);
 
-        // 標籤背景 (Tooltip 風格)
-        const text = label;
-        const fontSize = 12;
-        ctx.font = `${fontSize}px "Press Start 2P"`;
-        const textWidth = ctx.measureText(text).width;
-        const padding = 6;
+        // B. 繪製文字標籤 (模擬 Minecraft Tooltip)
+        const fontSize = 16;
+        ctx.font = `${fontSize}px "Press Start 2P", monospace`; // 加入 monospace 作為備用字體
         
-        // 標籤背景框 (半透明黑)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
+        const padding = 8;
+        const textMetrics = ctx.measureText(text);
+        const textWidth = textMetrics.width;
+        const boxHeight = fontSize + padding * 2;
+        const boxWidth = textWidth + padding * 2;
         
-        // 標籤邊框
-        ctx.strokeStyle = '#555'; // 石頭色邊框
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
+        // 標籤位置 (框框上方)
+        const labelX = x;
+        const labelY = y - boxHeight - 4 > 0 ? y - boxHeight - 4 : y + 4; // 如果上方沒空間就畫在裡面
 
-        // 文字
-        ctx.fillStyle = '#fff';
-        ctx.fillText(text, x + padding, y - padding);
+        // Tooltip 背景 (深紫色背景 #100010)
+        ctx.fillStyle = '#100010';
+        ctx.fillRect(labelX, labelY, boxWidth, boxHeight);
+        
+        // Tooltip 邊框 (紫色漸層模擬 #2a002a)
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#350040'; // 深紫邊框
+        ctx.strokeRect(labelX, labelY, boxWidth, boxHeight);
+
+        // 文字本身 (白色 + 陰影)
+        ctx.fillStyle = '#3f3f3f'; // 文字陰影
+        ctx.fillText(text, labelX + padding + 2, labelY + fontSize + padding + 2);
+        
+        ctx.fillStyle = '#ffffff'; // 文字白
+        ctx.fillText(text, labelX + padding, labelY + fontSize + padding);
+        
+        // 如果是特殊物品，顯示物品稀有度顏色 (例如名字變成金色/藍色)
+        if (color === '#FFD700') { // 針對 Player Head
+             ctx.fillStyle = '#FFFF55'; // Minecraft Yellow
+             ctx.fillText(text, labelX + padding, labelY + fontSize + padding);
+        }
     }
 
     // 4. 偵測迴圈
     async function detectFrame() {
         if (!isDetecting) return;
 
-        // 計算 FPS
         const now = performance.now();
+        // 簡單的 FPS 限制 (避免手機過熱)
+        if (now - lastTime < 30) { 
+            requestAnimationFrame(detectFrame);
+            return;
+        }
+        
         const fps = Math.round(1000 / (now - lastTime));
         lastTime = now;
         fpsText.innerText = `FPS: ${fps}`;
 
-        // 進行推論
+        // 推論
         const predictions = await model.detect(video);
 
-        // 清除畫布並重繪影像
+        // 清除與重繪
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 保留像素化效果
+        ctx.imageSmoothingEnabled = false; 
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // 繪製偵測結果
+        // 處理結果
         predictions.forEach(prediction => {
-            const className = prediction.class;
-            
-            // 檢查是否在我們的 Minecraft 映射表中
-            if (MINECRAFT_MAP[className]) {
-                const mcItem = MINECRAFT_MAP[className];
-                const [x, y, width, height] = prediction.bbox;
-                
-                // 過濾信心度太低的 (可選)
-                if (prediction.score > 0.5) {
-                    drawMinecraftBox(x, y, width, height, mcItem.name, mcItem.color);
-                }
+            // 取得原始類別並轉小寫
+            const rawClass = prediction.class.toLowerCase();
+            const [x, y, width, height] = prediction.bbox;
+
+            // Debug: 在 Console 看看到底辨識出什麼
+            // console.log("Detected:", rawClass); 
+
+            let displayItem = DEFAULT_BLOCK;
+
+            // 檢查映射表
+            if (MINECRAFT_MAP[rawClass]) {
+                displayItem = MINECRAFT_MAP[rawClass];
             } else {
-                // (選用) 顯示未定義物品，或是忽略
-                // const [x, y, width, height] = prediction.bbox;
-                // drawMinecraftBox(x, y, width, height, className, '#aaa');
+                // 如果不在表內，就用原始名稱但套用像素風，或者強制顯示 Cobblestone
+                // 這裡我們選擇: 顯示原始名稱，但當作 "Dirt" 處理
+                displayItem = { 
+                    name: rawClass.charAt(0).toUpperCase() + rawClass.slice(1), 
+                    color: '#888888' 
+                };
+            }
+
+            // 信心度過濾 > 60%
+            if (prediction.score > 0.6) {
+                drawMinecraftOverlay(x, y, width, height, displayItem.name, displayItem.color);
             }
         });
 
         requestAnimationFrame(detectFrame);
     }
 
-    // 啟動程式
     init();
-
 </script>
-</body>
-</html>
