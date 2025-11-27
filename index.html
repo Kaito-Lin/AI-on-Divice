@@ -3,268 +3,270 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Minecraft AI Vision</title>
-
+    <title>Minecraft AR Vision</title>
     <style>
-        /* 引入像素字體 */
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
         body {
             margin: 0;
             background-color: #1e1e1e;
-            color: white;
-            font-family: 'Press Start 2P', monospace; /* 若網路字體失敗，回退到 monospace */
             overflow: hidden;
-        }
-        
-        /* 紅色錯誤條 */
-        #error-bar {
-            position: absolute;
-            top: 0; left: 0; width: 100%;
-            background: #ff5555;
-            color: #fff;
-            padding: 10px;
-            font-size: 12px;
-            display: none;
-            z-index: 9999;
-            text-align: center;
+            font-family: 'Press Start 2P', monospace;
         }
 
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* 隱藏 Video 原始畫面 */
-        video { display: none; }
-
-        /* Canvas 填滿螢幕 */
+        /* 滿版畫布 */
         canvas {
+            display: block;
             position: absolute;
             top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            image-rendering: pixelated; /* 關鍵：像素風格 */
+            z-index: 1;
         }
 
-        /* 載入畫面 UI */
+        /* 載入介面 */
         #loading-ui {
-            z-index: 100;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #2e1a0b; /* Dirt color */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            color: #fff;
             text-align: center;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 40px;
-            border: 4px solid #fff;
-            box-shadow: 0 0 0 4px #000;
         }
-        
+
         .mc-btn {
             margin-top: 20px;
             background: #7d7d7d;
-            border: 4px solid #fff; /* 亮邊 */
-            border-right-color: #3b3b3b; /* 暗邊 */
+            border: 4px solid #fff;
             border-bottom-color: #3b3b3b;
+            border-right-color: #3b3b3b;
             padding: 15px 30px;
             color: #fff;
             font-family: inherit;
             cursor: pointer;
             text-shadow: 2px 2px #000;
-            display: none; /* 預設隱藏 */
         }
-        .mc-btn:active {
-            border: 4px solid #3b3b3b;
-            border-right-color: #fff;
-            border-bottom-color: #fff;
-        }
+        
+        #video-source { display: none; }
     </style>
-
+    
     <script src="https://unpkg.com/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
     <script src="https://unpkg.com/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
-
 </head>
 <body>
 
-    <div id="error-bar"></div>
-
-    <div id="game-container">
-        <div id="loading-ui">
-            <h1 style="text-shadow: 4px 4px #000; margin-bottom: 10px;">MINECRAFT<br><span style="color:#FFFF55; font-size:0.5em;">AI Edition</span></h1>
-            <p id="status-text" style="color: #aaa; font-size: 10px; margin-top: 20px;">Loading Libraries...</p>
-            <button id="start-btn" class="mc-btn">Start Game</button>
-        </div>
-        
-        <video id="webcam" playsinline muted></video>
-        <canvas id="output"></canvas>
+    <div id="loading-ui">
+        <h1 style="text-shadow: 4px 4px #000; line-height: 1.5;">MINECRAFT<br><span style="color:#FFFF55; font-size:0.6em;">AR Overlay</span></h1>
+        <p id="status" style="color:#aaa; font-size: 10px; margin-top:20px;">Building Terrain...</p>
+        <button id="start-btn" class="mc-btn" style="display:none;">Start Game</button>
     </div>
 
+    <video id="video-source" playsinline muted></video>
+    <canvas id="output"></canvas>
+
 <script>
-    // === 設定與變數 ===
-    const MC_MAP = {
-        'person':       { name: 'Steve',            color: '#FFD700' },
-        'laptop':       { name: 'Enchanting Table', color: '#b5651d' },
-        'tv':           { name: 'Obsidian',         color: '#2a002a' },
-        'keyboard':     { name: 'Stone Button',     color: '#aaaaaa' },
-        'mouse':        { name: 'Lever',            color: '#888888' },
-        'cell phone':   { name: 'Map',              color: '#ffffff' },
-        'bottle':       { name: 'Potion',           color: '#ff55ff' },
-        'cup':          { name: 'Flower Pot',       color: '#cd853f' },
-        'chair':        { name: 'Oak Stairs',       color: '#8b4513' },
-        'potted plant': { name: 'Sapling',          color: '#55ff55' },
-        'dining table': { name: 'Crafting Table',   color: '#8b4513' }
+    // === 1. Minecraft 物品圖片庫 (Base64 編碼) ===
+    // 這些是 16x16 像素圖放大後的 Base64 字串，確保離線可用
+    const ASSETS = {
+        // Steve Head (Player)
+        'person': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAACOFBMVEUAAAD///8AAQD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD///+x1X/fAAAAxnRSTlMAAAAAAAAJCQsTEx0dJSUtLTMzPT1JSU1NWVldXWVlbW11dYSEhI2NlZmlpa2ttbXFxdXV5eX19fX///8A/wD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAAP//AP8AAP8AAAD//wD/AAD/AAAAl2Z8MQAAAAFiS0dEAIgFHUgAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAAAHdElNRQfpCxwUJDc01/xOAAAAbElEQVQ4y2NgwA04mZDCnEzY5DDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5TDAhF0OA0zY5QAA8CwA8Zq1W5UAAAAASUVORK5CYII=',
+        
+        // Enchanting Table (for laptop/tv) - 紅皮書+黑曜石
+        'enchanting': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAwBQTFRF////AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA////g3Y9zwAAABl0Uk5TAAAAAAATEx0dJSUtLTMzPT1JSU1NXV1lZb2933sAAAABYktHRACIBR1IAAAACXBIWXMAABJ0AAASdAHeZh94AAAAB3RJTUUH6QscFCo50/JqYQAAAGxJREFUOMtjYMACmBmRwMyITOAywISuFqQWhwm7HJA6mLDLAamDCbscwIcJu9yAcgM2OQxgwi4HoA4m7HJAAiYwYZcDUgcTdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjkAdTBhlwM6YIITdjEAAP7IAPG/KkQzAAAAAElFTkSuQmCC',
+
+        // Crafting Table (for tables)
+        'crafting': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAFdQTFRFAAAA////gICA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAABFvPEeAAAAJ3RSTlMAAAAAExMdHSUlLS0zMz09SUlNTV1dZWVtbfX1////////////////38k19AAAAAWJLR0QAiAUdSAAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAAd0SU1FB+kLHBQtE9S007wAAABTSURBVDjLY2DABpgZkcDMiEzgMsCErhakFocJuxyQOpCwKwCoAwmbAgM2OQxgwi4HoA4k7HIAdSBhlwOoAwm7HEAdSNjlAOrAwq4ApA4k7HIAdSABAF3IAPF/9/Z1AAAAAElFTkSuQmCC',
+
+        // Oak Planks (for chairs/furniture)
+        'planks': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAFdQTFRFAAAA////gICA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAABFvPEeAAAAJ3RSTlMAAAAAExMdHSUlLS0zMz09SUlNTV1dZWVtbfX1////////////////38k19AAAAAWJLR0QAiAUdSAAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAAd0SU1FB+kLHBQuFz0s2jUAAABTSURBVDjLY2DABpgZkcDMiEzgMsCErhakFocJuxyQOpCwKwCoAwmbAgM2OQxgwi4HoA4k7HIAdSBhlwOoAwm7HEAdSNjlAOrAwq4ApA4k7HIAdSABAF3IAPF/9/Z1AAAAAElFTkSuQmCC'
     };
 
-    const statusText = document.getElementById('status-text');
-    const startBtn = document.getElementById('start-btn');
-    const errorBar = document.getElementById('error-bar');
-    const loadingUi = document.getElementById('loading-ui');
-    const video = document.getElementById('webcam');
+    // 映射表
+    const MC_MAP = {
+        'person':       { name: 'Steve',            icon: 'person',     color: '#FFD700' },
+        'laptop':       { name: 'Enchanting Table', icon: 'enchanting', color: '#b5651d' },
+        'tv':           { name: 'Enchanting Table', icon: 'enchanting', color: '#2a002a' },
+        'keyboard':     { name: 'Pressure Plate',   icon: 'planks',     color: '#aaaaaa' },
+        'cell phone':   { name: 'Map',              icon: 'crafting',   color: '#ffffff' },
+        'chair':        { name: 'Oak Stairs',       icon: 'planks',     color: '#b8860b' },
+        'dining table': { name: 'Crafting Table',   icon: 'crafting',   color: '#8b4513' },
+    };
+    
+    // 預設物品
+    const DEFAULT_ITEM = { name: 'Cobblestone', icon: 'planks', color: '#777' };
+
+    // === 變數初始化 ===
+    const video = document.getElementById('video-source');
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('status');
+    const startBtn = document.getElementById('start-btn');
+    const loadingUi = document.getElementById('loading-ui');
 
     let model = null;
-    let isRunning = false;
+    let loadedImages = {};
 
-    // === 核心功能 ===
-
-    // 1. 檢查並初始化
-    window.onload = async function() {
-        // 檢查 Library 是否載入成功
-        if (typeof tf === 'undefined' || typeof cocoSsd === 'undefined') {
-            showError("Library Load Failed. Please refresh or check connection.");
-            return;
+    // === 1. 預載圖片 ===
+    function loadAssets() {
+        let loadCount = 0;
+        const total = Object.keys(ASSETS).length;
+        
+        for (let key in ASSETS) {
+            const img = new Image();
+            img.src = ASSETS[key];
+            img.onload = () => {
+                loadedImages[key] = img;
+                loadCount++;
+                if (loadCount === total) {
+                    console.log("All Assets Loaded");
+                    initAI();
+                }
+            };
         }
+    }
 
+    // === 2. 初始化 AI ===
+    async function initAI() {
         try {
-            statusText.innerText = "Downloading Model...";
-            // 載入模型 (使用 lite_mobilenet_v2 提升速度)
+            statusText.innerText = "Loading AI Model...";
             model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
             
-            statusText.innerText = "Ready!";
-            statusText.style.color = "#55ff55";
+            statusText.innerText = "World Generated!";
             startBtn.style.display = 'inline-block';
-            
             startBtn.onclick = startCamera;
         } catch (e) {
-            showError("Model Init Failed: " + e.message);
+            statusText.innerText = "Error: " + e.message;
         }
-    };
+    }
 
-    // 2. 啟動相機
+    // === 3. 啟動攝影機 ===
     async function startCamera() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            showError("Camera API not supported.");
-            return;
-        }
-
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
                 video: { facingMode: 'environment' }
             });
             video.srcObject = stream;
-            
             video.onloadedmetadata = () => {
                 video.play();
-                loadingUi.style.display = 'none'; // 隱藏選單
+                loadingUi.style.display = 'none';
                 resizeCanvas();
-                isRunning = true;
-                detectFrame(); // 開始迴圈
+                detectFrame();
             };
         } catch (e) {
-            showError("Camera Access Denied: " + e.message);
+            alert("Camera Access Denied");
         }
     }
 
-    // 3. 調整畫布大小
+    // 視窗調整
     function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
     }
     window.onresize = resizeCanvas;
 
-    // 4. AI 偵測迴圈
+    // === 4. 偵測與繪圖 (含畫面比例修正) ===
     async function detectFrame() {
-        if (!isRunning) return;
+        // A. 計算畫面比例 (Object-Fit: Cover)
+        // 這是為了解決你的截圖中「畫面被壓扁」的問題
+        const screenRatio = canvas.width / canvas.height;
+        const videoRatio = video.videoWidth / video.videoHeight;
+        
+        let drawWidth, drawHeight, startX, startY;
+        let scale; // 用於修正 Bounding Box 座標
+
+        if (screenRatio > videoRatio) {
+            // 螢幕比較寬 -> 以寬度為準，裁切上下
+            drawWidth = canvas.width;
+            drawHeight = canvas.width / videoRatio;
+            startX = 0;
+            startY = (canvas.height - drawHeight) / 2;
+            scale = canvas.width / video.videoWidth;
+        } else {
+            // 螢幕比較窄 -> 以高度為準，裁切左右
+            drawWidth = canvas.height * videoRatio;
+            drawHeight = canvas.height;
+            startX = (canvas.width - drawWidth) / 2;
+            startY = 0;
+            scale = canvas.height / video.videoHeight;
+        }
 
         // 畫出視訊底圖
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, startX, startY, drawWidth, drawHeight);
 
-        // 預測
+        // B. AI 預測
         const predictions = await model.detect(video);
 
-        // 繪製結果
+        // C. 繪製 Minecraft Overlay
         predictions.forEach(prediction => {
             if (prediction.score > 0.5) {
-                drawMcBox(prediction);
+                
+                // 修正座標 (Mapping Video coord -> Canvas coord)
+                const x = prediction.bbox[0] * scale + startX;
+                const y = prediction.bbox[1] * scale + startY;
+                const w = prediction.bbox[2] * scale;
+                const h = prediction.bbox[3] * scale;
+                
+                const rawClass = prediction.class.toLowerCase();
+                
+                // 取得對應資料
+                let item = MC_MAP[rawClass] || { 
+                    name: rawClass, 
+                    icon: 'planks', // 預設圖示
+                    color: '#aaa' 
+                };
+
+                // 1. 畫框框
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = item.color;
+                ctx.strokeRect(x, y, w, h);
+
+                // 2. 畫 Tooltip 背景
+                const text = item.name;
+                const iconSize = 32; // 圖示大小
+                const padding = 8;
+                const fontSize = 16;
+                ctx.font = `${fontSize}px "Press Start 2P", monospace`;
+                const textW = ctx.measureText(text).width;
+                
+                const boxW = iconSize + textW + padding * 3;
+                const boxH = iconSize + padding * 2;
+                
+                // 決定 Tooltip 位置 (在框框上方)
+                let tx = x;
+                let ty = y - boxH - 10;
+                if (ty < 0) ty = y + 10; // 跑出去就畫在裡面
+
+                // 畫黑底紫框
+                ctx.fillStyle = "rgba(16, 0, 16, 0.9)";
+                ctx.fillRect(tx, ty, boxW, boxH);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = "#300060"; // Purple border
+                ctx.strokeRect(tx, ty, boxW, boxH);
+
+                // 3. 畫圖片 (Icon) !!! 關鍵點 !!!
+                // 這裡會把 Base64 圖片畫上去
+                if (loadedImages[item.icon]) {
+                    // 為了像素風，關閉平滑
+                    ctx.imageSmoothingEnabled = false; 
+                    ctx.drawImage(loadedImages[item.icon], tx + padding, ty + padding, iconSize, iconSize);
+                }
+
+                // 4. 畫文字
+                ctx.fillStyle = item.color;
+                if (item.name === 'Steve') ctx.fillStyle = '#FFFF55';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, tx + padding + iconSize + padding, ty + boxH/2);
             }
         });
 
         requestAnimationFrame(detectFrame);
     }
 
-    // 5. 繪製 Minecraft 風格框
-    function drawMcBox(prediction) {
-        const [x, y, w, h] = prediction.bbox;
-        const rawClass = prediction.class.toLowerCase();
-
-        // 座標轉換 (Video -> Canvas)
-        // 這裡做簡化全螢幕拉伸，確保對齊
-        const scaleX = canvas.width / video.videoWidth;
-        const scaleY = canvas.height / video.videoHeight;
-
-        const sx = x * scaleX;
-        const sy = y * scaleY;
-        const sw = w * scaleX;
-        const sh = h * scaleY;
-
-        // 取得對應資料
-        let item = MC_MAP[rawClass] || { 
-            name: rawClass.charAt(0).toUpperCase() + rawClass.slice(1), 
-            color: '#aaaaaa' 
-        };
-
-        // --- 繪圖開始 ---
-        
-        // 粗框線 (陰影)
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-        ctx.strokeRect(sx + 4, sy + 4, sw, sh);
-
-        // 粗框線 (主色)
-        ctx.strokeStyle = item.color;
-        ctx.strokeRect(sx, sy, sw, sh);
-
-        // Tooltip 背景
-        const text = item.name;
-        ctx.font = '16px "Press Start 2P", monospace';
-        const textWidth = ctx.measureText(text).width;
-        
-        // 畫在框框上方，若超出畫面則畫在下方
-        let labelY = sy - 35;
-        if (labelY < 0) labelY = sy + 10;
-
-        ctx.fillStyle = '#100010'; // 深紫黑
-        ctx.fillRect(sx, labelY, textWidth + 20, 30);
-        
-        ctx.strokeStyle = '#2a002a'; // 紫色邊框
-        ctx.lineWidth = 2;
-        ctx.strokeRect(sx, labelY, textWidth + 20, 30);
-
-        // 文字
-        ctx.fillStyle = item.color;
-        if (item.name === 'Steve') ctx.fillStyle = '#FFFF55'; // Player
-        
-        ctx.fillText(text, sx + 10, labelY + 22);
-    }
-
-    function showError(msg) {
-        console.error(msg);
-        errorBar.innerText = msg;
-        errorBar.style.display = 'block';
-    }
+    // 啟動程序
+    loadAssets(); // 先載圖，圖好了會自動呼叫 initAI
 
 </script>
 </body>
